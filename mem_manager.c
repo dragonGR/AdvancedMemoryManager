@@ -3,16 +3,16 @@
 #include <string.h>
 
 // Custom memory block structure
-typedef struct MemBlock {
+typedef struct MemoryBlock {
     size_t size;
     void* ptr;
     int ref_count; // Reference count for the block
-    struct MemBlock* next;
-} MemBlock;
+    struct MemoryBlock* next;
+} MemoryBlock;
 
 // Memory manager structure
 typedef struct {
-    MemBlock* head;
+    MemoryBlock* head;
 } MemoryManager;
 
 // Function prototypes
@@ -29,9 +29,18 @@ void print_memory_blocks(MemoryManager* manager);
 // Main function
 int main() {
     MemoryManager* manager = create_memory_manager();
+    if (!manager) {
+        fprintf(stderr, "Failed to create memory manager\n");
+        return 1;
+    }
 
     // Allocate memory
     int* array = (int*)allocate_memory(manager, 10 * sizeof(int));
+    if (!array) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        free_memory_manager(manager);
+        return 1;
+    }
     for (int i = 0; i < 10; i++) {
         array[i] = i + 1;
     }
@@ -41,6 +50,11 @@ int main() {
 
     // Reallocate memory
     array = (int*)reallocate_memory(manager, array, 20 * sizeof(int));
+    if (!array) {
+        fprintf(stderr, "Failed to reallocate memory\n");
+        free_memory_manager(manager);
+        return 1;
+    }
     for (int i = 10; i < 20; i++) {
         array[i] = i + 1;
     }
@@ -54,6 +68,11 @@ int main() {
 
     // Copy memory
     int* copy = (int*)copy_memory(manager, array, 20 * sizeof(int));
+    if (!copy) {
+        fprintf(stderr, "Failed to copy memory\n");
+        free_memory_manager(manager);
+        return 1;
+    }
 
     // Print copied array
     printf("Copied array: ");
@@ -84,15 +103,25 @@ int main() {
 // Create memory manager
 MemoryManager* create_memory_manager() {
     MemoryManager* manager = (MemoryManager*)malloc(sizeof(MemoryManager));
+    if (!manager) {
+        return NULL;
+    }
     manager->head = NULL;
     return manager;
 }
 
 // Allocate memory
 void* allocate_memory(MemoryManager* manager, size_t size) {
-    MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
+    MemoryBlock* block = (MemoryBlock*)malloc(sizeof(MemoryBlock));
+    if (!block) {
+        return NULL;
+    }
     block->size = size;
     block->ptr = malloc(size);
+    if (!block->ptr) {
+        free(block);
+        return NULL;
+    }
     block->ref_count = 1; // Initial reference count is 1
     block->next = manager->head;
     manager->head = block;
@@ -101,7 +130,7 @@ void* allocate_memory(MemoryManager* manager, size_t size) {
 
 // Increment reference count
 void increment_ref_count(MemoryManager* manager, void* ptr) {
-    MemBlock* current = manager->head;
+    MemoryBlock* current = manager->head;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
@@ -114,8 +143,8 @@ void increment_ref_count(MemoryManager* manager, void* ptr) {
 
 // Decrement reference count
 void decrement_ref_count(MemoryManager* manager, void* ptr) {
-    MemBlock* current = manager->head;
-    MemBlock* prev = NULL;
+    MemoryBlock* current = manager->head;
+    MemoryBlock* prev = NULL;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
@@ -138,7 +167,7 @@ void decrement_ref_count(MemoryManager* manager, void* ptr) {
 
 // Reallocate memory
 void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
-    MemBlock* current = manager->head;
+    MemoryBlock* current = manager->head;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
@@ -159,16 +188,19 @@ void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
 // Copy memory
 void* copy_memory(MemoryManager* manager, void* src, size_t size) {
     void* dest = allocate_memory(manager, size);
+    if (!dest) {
+        return NULL;
+    }
     memcpy(dest, src, size);
     return dest;
 }
 
 // Free memory manager
 void free_memory_manager(MemoryManager* manager) {
-    MemBlock* current = manager->head;
+    MemoryBlock* current = manager->head;
 
     while (current != NULL) {
-        MemBlock* next = current->next;
+        MemoryBlock* next = current->next;
         free(current->ptr);
         free(current);
         current = next;
@@ -179,7 +211,7 @@ void free_memory_manager(MemoryManager* manager) {
 
 // Print memory blocks
 void print_memory_blocks(MemoryManager* manager) {
-    MemBlock* current = manager->head;
+    MemoryBlock* current = manager->head;
     printf("Memory blocks:\n");
 
     while (current != NULL) {
