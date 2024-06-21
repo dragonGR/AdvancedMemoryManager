@@ -22,6 +22,7 @@ The main file containing the implementation of the memory management library.
 - `MemoryManager* create_memory_manager()`: Initializes a memory manager.
 - `void* allocate_memory(MemoryManager* manager, size_t size)`: Allocates memory and tracks it.
 - `void deallocate_memory(MemoryManager* manager, void* ptr)`: Deallocates a specific memory block.
+- `void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size)`: Reallocates memory to a new size.
 - `void* copy_memory(MemoryManager* manager, void* src, size_t size)`: Copies data to a new memory block.
 - `void free_memory_manager(MemoryManager* manager)`: Frees all allocated memory and the manager.
 - `void print_memory_blocks(MemoryManager* manager)`: Prints details of all managed memory blocks.
@@ -29,9 +30,10 @@ The main file containing the implementation of the memory management library.
 ## Example
 The `main` function demonstrates usage by:
 1. Allocating an array of integers.
-2. Copying the array.
-3. Printing the copied array.
-4. Printing memory blocks before and after deallocation.
+2. Reallocating the array to a larger size.
+3. Copying the array.
+4. Printing the copied array.
+5. Printing memory blocks before and after deallocation.
 
 ## License
 This project is licensed under the MIT License.

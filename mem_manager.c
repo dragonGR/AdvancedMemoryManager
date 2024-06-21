@@ -18,6 +18,7 @@ typedef struct {
 MemoryManager* create_memory_manager();
 void* allocate_memory(MemoryManager* manager, size_t size);
 void deallocate_memory(MemoryManager* manager, void* ptr);
+void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size);
 void* copy_memory(MemoryManager* manager, void* src, size_t size);
 void free_memory_manager(MemoryManager* manager);
 void print_memory_blocks(MemoryManager* manager);
@@ -31,6 +32,19 @@ int main() {
     for (int i = 0; i < 10; i++) {
         array[i] = i + 1;
     }
+
+    // Reallocate memory
+    array = (int*)reallocate_memory(manager, array, 20 * sizeof(int));
+    for (int i = 10; i < 20; i++) {
+        array[i] = i + 1;
+    }
+
+    // Print reallocated array
+    printf("Reallocated array: ");
+    for (int i = 0; i < 20; i++) {
+        printf("%d ", array[i]);
+    }
+    printf("\n");
 
     // Copy memory
     int* copy = (int*)copy_memory(manager, array, 10 * sizeof(int));
@@ -94,6 +108,26 @@ void deallocate_memory(MemoryManager* manager, void* ptr) {
         prev = current;
         current = current->next;
     }
+}
+
+// Reallocate memory
+void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
+    MemBlock* current = manager->head;
+
+    while (current != NULL) {
+        if (current->ptr == ptr) {
+            void* new_ptr = realloc(current->ptr, new_size);
+            if (new_ptr == NULL) {
+                return NULL; // realloc failed
+            }
+            current->ptr = new_ptr;
+            current->size = new_size;
+            return new_ptr;
+        }
+        current = current->next;
+    }
+
+    return NULL; // ptr not found
 }
 
 // Copy memory
