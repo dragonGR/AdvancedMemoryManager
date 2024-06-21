@@ -6,6 +6,7 @@
 typedef struct MemBlock {
     size_t size;
     void* ptr;
+    int ref_count; // Reference count for the block
     struct MemBlock* next;
 } MemBlock;
 
@@ -17,6 +18,8 @@ typedef struct {
 // Function prototypes
 MemoryManager* create_memory_manager();
 void* allocate_memory(MemoryManager* manager, size_t size);
+void increment_ref_count(MemoryManager* manager, void* ptr);
+void decrement_ref_count(MemoryManager* manager, void* ptr);
 void deallocate_memory(MemoryManager* manager, void* ptr);
 void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size);
 void* copy_memory(MemoryManager* manager, void* src, size_t size);
@@ -33,6 +36,9 @@ int main() {
         array[i] = i + 1;
     }
 
+    // Increment reference count
+    increment_ref_count(manager, array);
+
     // Reallocate memory
     array = (int*)reallocate_memory(manager, array, 20 * sizeof(int));
     for (int i = 10; i < 20; i++) {
@@ -47,11 +53,11 @@ int main() {
     printf("\n");
 
     // Copy memory
-    int* copy = (int*)copy_memory(manager, array, 10 * sizeof(int));
+    int* copy = (int*)copy_memory(manager, array, 20 * sizeof(int));
 
     // Print copied array
     printf("Copied array: ");
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 20; i++) {
         printf("%d ", copy[i]);
     }
     printf("\n");
@@ -59,9 +65,12 @@ int main() {
     // Print memory blocks
     print_memory_blocks(manager);
 
-    // Deallocate memory
-    deallocate_memory(manager, array);
-    deallocate_memory(manager, copy);
+    // Decrement reference count
+    decrement_ref_count(manager, array);
+    decrement_ref_count(manager, array); // This should trigger deallocation
+
+    // Deallocate copied memory
+    decrement_ref_count(manager, copy);
 
     // Print memory blocks after deallocation
     print_memory_blocks(manager);
@@ -84,25 +93,42 @@ void* allocate_memory(MemoryManager* manager, size_t size) {
     MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
     block->size = size;
     block->ptr = malloc(size);
+    block->ref_count = 1; // Initial reference count is 1
     block->next = manager->head;
     manager->head = block;
     return block->ptr;
 }
 
-// Deallocate memory
-void deallocate_memory(MemoryManager* manager, void* ptr) {
+// Increment reference count
+void increment_ref_count(MemoryManager* manager, void* ptr) {
+    MemBlock* current = manager->head;
+
+    while (current != NULL) {
+        if (current->ptr == ptr) {
+            current->ref_count++;
+            return;
+        }
+        current = current->next;
+    }
+}
+
+// Decrement reference count
+void decrement_ref_count(MemoryManager* manager, void* ptr) {
     MemBlock* current = manager->head;
     MemBlock* prev = NULL;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
-            if (prev != NULL) {
-                prev->next = current->next;
-            } else {
-                manager->head = current->next;
+            current->ref_count--;
+            if (current->ref_count == 0) {
+                if (prev != NULL) {
+                    prev->next = current->next;
+                } else {
+                    manager->head = current->next;
+                }
+                free(current->ptr);
+                free(current);
             }
-            free(current->ptr);
-            free(current);
             return;
         }
         prev = current;
@@ -157,7 +183,7 @@ void print_memory_blocks(MemoryManager* manager) {
     printf("Memory blocks:\n");
 
     while (current != NULL) {
-        printf("Block at %p, size: %zu bytes\n", current->ptr, current->size);
+        printf("Block at %p, size: %zu bytes, ref_count: %d\n", current->ptr, current->size, current->ref_count);
         current = current->next;
     }
     printf("\n");

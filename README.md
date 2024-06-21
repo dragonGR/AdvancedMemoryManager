@@ -6,8 +6,9 @@ It includes custom memory allocation, deallocation, and memory copying functions
 
 ## Features
 - Custom memory allocation and deallocation
+- Memory reallocation
 - Memory copying with error handling
-- Detailed memory block management
+- Detailed memory block management with reference counting
 - Example usage in the `main` function
 
 ## Getting Started
@@ -21,6 +22,8 @@ The main file containing the implementation of the memory management library.
 #### Key Functions:
 - `MemoryManager* create_memory_manager()`: Initializes a memory manager.
 - `void* allocate_memory(MemoryManager* manager, size_t size)`: Allocates memory and tracks it.
+- `void increment_ref_count(MemoryManager* manager, void* ptr)`: Increments the reference count for a memory block.
+- `void decrement_ref_count(MemoryManager* manager, void* ptr)`: Decrements the reference count for a memory block and deallocates it if the count reaches zero.
 - `void deallocate_memory(MemoryManager* manager, void* ptr)`: Deallocates a specific memory block.
 - `void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size)`: Reallocates memory to a new size.
 - `void* copy_memory(MemoryManager* manager, void* src, size_t size)`: Copies data to a new memory block.
@@ -30,10 +33,12 @@ The main file containing the implementation of the memory management library.
 ## Example
 The `main` function demonstrates usage by:
 1. Allocating an array of integers.
-2. Reallocating the array to a larger size.
-3. Copying the array.
-4. Printing the copied array.
-5. Printing memory blocks before and after deallocation.
+2. Incrementing the reference count.
+3. Reallocating the array to a larger size.
+4. Copying the array.
+5. Printing the reallocated and copied arrays.
+6. Printing memory blocks before and after deallocation.
+7. Decrementing the reference count to trigger deallocation.
 
 ## License
 This project is licensed under the MIT License.
