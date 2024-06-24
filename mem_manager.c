@@ -10,9 +10,18 @@ typedef struct MemBlock {
     struct MemBlock* next;
 } MemBlock;
 
+// Memory pool structure
+typedef struct MemPool {
+    size_t block_size;
+    size_t block_count;
+    MemBlock* free_list;
+    struct MemPool* next;
+} MemPool;
+
 // Memory manager structure
 typedef struct {
     MemBlock* head;
+    MemPool* pools;
 } MemoryManager;
 
 // Function prototypes
@@ -26,10 +35,16 @@ void* copy_memory(MemoryManager* manager, void* src, size_t size);
 void free_memory_manager(MemoryManager* manager);
 void print_memory_blocks(MemoryManager* manager);
 void defragment_memory(MemoryManager* manager);
+void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count);
+void* allocate_from_pool(MemoryManager* manager, size_t size);
 
 // Main function
 int main() {
     MemoryManager* manager = create_memory_manager();
+
+    // Create memory pools
+    create_memory_pool(manager, 32, 10); // Pool with 32-byte blocks
+    create_memory_pool(manager, 64, 10); // Pool with 64-byte blocks
 
     // Allocate memory
     int* array = (int*)allocate_memory(manager, 10 * sizeof(int));
@@ -92,11 +107,17 @@ int main() {
 MemoryManager* create_memory_manager() {
     MemoryManager* manager = (MemoryManager*)malloc(sizeof(MemoryManager));
     manager->head = NULL;
+    manager->pools = NULL;
     return manager;
 }
 
 // Allocate memory
 void* allocate_memory(MemoryManager* manager, size_t size) {
+    void* ptr = allocate_from_pool(manager, size);
+    if (ptr != NULL) {
+        return ptr;
+    }
+    
     MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
     block->size = size;
     block->ptr = malloc(size);
@@ -104,6 +125,44 @@ void* allocate_memory(MemoryManager* manager, size_t size) {
     block->next = manager->head;
     manager->head = block;
     return block->ptr;
+}
+
+// Allocate memory from pool
+void* allocate_from_pool(MemoryManager* manager, size_t size) {
+    MemPool* pool = manager->pools;
+
+    while (pool != NULL) {
+        if (pool->block_size >= size && pool->free_list != NULL) {
+            MemBlock* block = pool->free_list;
+            pool->free_list = block->next;
+            block->next = manager->head;
+            manager->head = block;
+            block->ref_count = 1; // Initial reference count is 1
+            return block->ptr;
+        }
+        pool = pool->next;
+    }
+
+    return NULL;
+}
+
+// Create memory pool
+void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count) {
+    MemPool* pool = (MemPool*)malloc(sizeof(MemPool));
+    pool->block_size = block_size;
+    pool->block_count = block_count;
+    pool->free_list = NULL;
+    pool->next = manager->pools;
+    manager->pools = pool;
+
+    for (size_t i = 0; i < block_count; i++) {
+        MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
+        block->size = block_size;
+        block->ptr = malloc(block_size);
+        block->ref_count = 0; // Initial reference count is 0
+        block->next = pool->free_list;
+        pool->free_list = block;
+    }
 }
 
 // Increment reference count
@@ -133,12 +192,35 @@ void decrement_ref_count(MemoryManager* manager, void* ptr) {
                 } else {
                     manager->head = current->next;
                 }
-                free(current->ptr);
+                deallocate_memory(manager, current->ptr);
                 free(current);
             }
             return;
         }
         prev = current;
+        current = current->next;
+    }
+}
+
+// Deallocate memory
+void deallocate_memory(MemoryManager* manager, void* ptr) {
+    MemBlock* current = manager->head;
+    MemPool* pool = manager->pools;
+
+    while (current != NULL) {
+        if (current->ptr == ptr) {
+            while (pool != NULL) {
+                if (pool->block_size >= current->size) {
+                    current->next = pool->free_list;
+                    pool->free_list = current;
+                    return;
+                }
+                pool = pool->next;
+            }
+
+            free(current->ptr);
+            return;
+        }
         current = current->next;
     }
 }
@@ -179,6 +261,20 @@ void free_memory_manager(MemoryManager* manager) {
         free(current->ptr);
         free(current);
         current = next;
+    }
+
+    MemPool* pool = manager->pools;
+    while (pool != NULL) {
+        MemPool* next_pool = pool->next;
+        MemBlock* block = pool->free_list;
+        while (block != NULL) {
+            MemBlock* next_block = block->next;
+            free(block->ptr);
+            free(block);
+            block = next_block;
+        }
+        free(pool);
+        pool = next_pool;
     }
 
     free(manager);

@@ -10,6 +10,7 @@ It includes custom memory allocation, deallocation, and memory copying functions
 - Memory copying with error handling
 - Detailed memory block management with reference counting
 - Memory defragmentation to consolidate free blocks
+- Memory pooling for efficient allocation of fixed-size blocks
 - Example usage in the `main` function
 
 ## Getting Started
@@ -31,17 +32,21 @@ The main file containing the implementation of the memory management library.
 - `void free_memory_manager(MemoryManager* manager)`: Frees all allocated memory and the manager.
 - `void print_memory_blocks(MemoryManager* manager)`: Prints details of all managed memory blocks.
 - `void defragment_memory(MemoryManager* manager)`: Consolidates adjacent free memory blocks into larger contiguous blocks.
+- `void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count)`: Creates a memory pool for fixed-size blocks.
+- `void* allocate_from_pool(MemoryManager* manager, size_t size)`: Allocates memory from a pool if available.
 
 ## Example
 The `main` function demonstrates usage by:
-1. Allocating an array of integers.
-2. Incrementing the reference count.
-3. Reallocating the array to a larger size.
-4. Copying the array.
-5. Printing the reallocated and copied arrays.
-7. Defragmenting memory blocks.
-8. Printing memory blocks after defragmentation.
-9. Decrementing the reference count to trigger deallocation.
+1. Creating memory pools.
+2. Allocating an array of integers.
+3. Incrementing the reference count.
+4. Reallocating the array to a larger size.
+5. Copying the array.
+6. Printing the reallocated and copied arrays.
+7. Printing memory blocks before and after deallocation.
+8. Defragmenting memory blocks.
+9. Printing memory blocks after defragmentation.
+10. Decrementing the reference count to trigger deallocation.
 
 ## License
 This project is licensed under the MIT License.
