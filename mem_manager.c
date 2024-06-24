@@ -3,16 +3,16 @@
 #include <string.h>
 
 // Custom memory block structure
-typedef struct MemoryBlock {
+typedef struct MemBlock {
     size_t size;
     void* ptr;
     int ref_count; // Reference count for the block
-    struct MemoryBlock* next;
-} MemoryBlock;
+    struct MemBlock* next;
+} MemBlock;
 
 // Memory manager structure
 typedef struct {
-    MemoryBlock* head;
+    MemBlock* head;
 } MemoryManager;
 
 // Function prototypes
@@ -25,22 +25,14 @@ void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size);
 void* copy_memory(MemoryManager* manager, void* src, size_t size);
 void free_memory_manager(MemoryManager* manager);
 void print_memory_blocks(MemoryManager* manager);
+void defragment_memory(MemoryManager* manager);
 
 // Main function
 int main() {
     MemoryManager* manager = create_memory_manager();
-    if (!manager) {
-        fprintf(stderr, "Failed to create memory manager\n");
-        return 1;
-    }
 
     // Allocate memory
     int* array = (int*)allocate_memory(manager, 10 * sizeof(int));
-    if (!array) {
-        fprintf(stderr, "Failed to allocate memory\n");
-        free_memory_manager(manager);
-        return 1;
-    }
     for (int i = 0; i < 10; i++) {
         array[i] = i + 1;
     }
@@ -50,11 +42,6 @@ int main() {
 
     // Reallocate memory
     array = (int*)reallocate_memory(manager, array, 20 * sizeof(int));
-    if (!array) {
-        fprintf(stderr, "Failed to reallocate memory\n");
-        free_memory_manager(manager);
-        return 1;
-    }
     for (int i = 10; i < 20; i++) {
         array[i] = i + 1;
     }
@@ -68,11 +55,6 @@ int main() {
 
     // Copy memory
     int* copy = (int*)copy_memory(manager, array, 20 * sizeof(int));
-    if (!copy) {
-        fprintf(stderr, "Failed to copy memory\n");
-        free_memory_manager(manager);
-        return 1;
-    }
 
     // Print copied array
     printf("Copied array: ");
@@ -94,6 +76,12 @@ int main() {
     // Print memory blocks after deallocation
     print_memory_blocks(manager);
 
+    // Defragment memory
+    defragment_memory(manager);
+
+    // Print memory blocks after defragmentation
+    print_memory_blocks(manager);
+
     // Free memory manager
     free_memory_manager(manager);
 
@@ -103,25 +91,15 @@ int main() {
 // Create memory manager
 MemoryManager* create_memory_manager() {
     MemoryManager* manager = (MemoryManager*)malloc(sizeof(MemoryManager));
-    if (!manager) {
-        return NULL;
-    }
     manager->head = NULL;
     return manager;
 }
 
 // Allocate memory
 void* allocate_memory(MemoryManager* manager, size_t size) {
-    MemoryBlock* block = (MemoryBlock*)malloc(sizeof(MemoryBlock));
-    if (!block) {
-        return NULL;
-    }
+    MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
     block->size = size;
     block->ptr = malloc(size);
-    if (!block->ptr) {
-        free(block);
-        return NULL;
-    }
     block->ref_count = 1; // Initial reference count is 1
     block->next = manager->head;
     manager->head = block;
@@ -130,7 +108,7 @@ void* allocate_memory(MemoryManager* manager, size_t size) {
 
 // Increment reference count
 void increment_ref_count(MemoryManager* manager, void* ptr) {
-    MemoryBlock* current = manager->head;
+    MemBlock* current = manager->head;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
@@ -143,8 +121,8 @@ void increment_ref_count(MemoryManager* manager, void* ptr) {
 
 // Decrement reference count
 void decrement_ref_count(MemoryManager* manager, void* ptr) {
-    MemoryBlock* current = manager->head;
-    MemoryBlock* prev = NULL;
+    MemBlock* current = manager->head;
+    MemBlock* prev = NULL;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
@@ -167,7 +145,7 @@ void decrement_ref_count(MemoryManager* manager, void* ptr) {
 
 // Reallocate memory
 void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
-    MemoryBlock* current = manager->head;
+    MemBlock* current = manager->head;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
@@ -188,19 +166,16 @@ void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
 // Copy memory
 void* copy_memory(MemoryManager* manager, void* src, size_t size) {
     void* dest = allocate_memory(manager, size);
-    if (!dest) {
-        return NULL;
-    }
     memcpy(dest, src, size);
     return dest;
 }
 
 // Free memory manager
 void free_memory_manager(MemoryManager* manager) {
-    MemoryBlock* current = manager->head;
+    MemBlock* current = manager->head;
 
     while (current != NULL) {
-        MemoryBlock* next = current->next;
+        MemBlock* next = current->next;
         free(current->ptr);
         free(current);
         current = next;
@@ -211,7 +186,7 @@ void free_memory_manager(MemoryManager* manager) {
 
 // Print memory blocks
 void print_memory_blocks(MemoryManager* manager) {
-    MemoryBlock* current = manager->head;
+    MemBlock* current = manager->head;
     printf("Memory blocks:\n");
 
     while (current != NULL) {
@@ -219,4 +194,26 @@ void print_memory_blocks(MemoryManager* manager) {
         current = current->next;
     }
     printf("\n");
+}
+
+// Defragment memory
+void defragment_memory(MemoryManager* manager) {
+    MemBlock* current = manager->head;
+    MemBlock* next;
+
+    while (current != NULL && current->next != NULL) {
+        next = current->next;
+        if ((char*)current->ptr + current->size == next->ptr && next->ref_count == 0) {
+            current->ptr = realloc(current->ptr, current->size + next->size);
+            if (current->ptr == NULL) {
+                printf("Defragmentation failed\n");
+                return;
+            }
+            current->size += next->size;
+            current->next = next->next;
+            free(next);
+        } else {
+            current = current->next;
+        }
+    }
 }

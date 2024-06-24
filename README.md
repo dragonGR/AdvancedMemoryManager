@@ -9,6 +9,7 @@ It includes custom memory allocation, deallocation, and memory copying functions
 - Memory reallocation
 - Memory copying with error handling
 - Detailed memory block management with reference counting
+- Memory defragmentation to consolidate free blocks
 - Example usage in the `main` function
 
 ## Getting Started
@@ -29,6 +30,7 @@ The main file containing the implementation of the memory management library.
 - `void* copy_memory(MemoryManager* manager, void* src, size_t size)`: Copies data to a new memory block.
 - `void free_memory_manager(MemoryManager* manager)`: Frees all allocated memory and the manager.
 - `void print_memory_blocks(MemoryManager* manager)`: Prints details of all managed memory blocks.
+- `void defragment_memory(MemoryManager* manager)`: Consolidates adjacent free memory blocks into larger contiguous blocks.
 
 ## Example
 The `main` function demonstrates usage by:
@@ -37,8 +39,9 @@ The `main` function demonstrates usage by:
 3. Reallocating the array to a larger size.
 4. Copying the array.
 5. Printing the reallocated and copied arrays.
-6. Printing memory blocks before and after deallocation.
-7. Decrementing the reference count to trigger deallocation.
+7. Defragmenting memory blocks.
+8. Printing memory blocks after defragmentation.
+9. Decrementing the reference count to trigger deallocation.
 
 ## License
 This project is licensed under the MIT License.
