@@ -280,7 +280,7 @@ void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size, size
 
             current->ptr = (void*)aligned_ptr;
             current->size = new_size;
-            return new_ptr;
+            return current->ptr;
         }
         current = current->next;
     }
@@ -330,12 +330,28 @@ void free_memory_manager(MemoryManager* manager) {
 // Print memory blocks
 void print_memory_blocks(MemoryManager* manager) {
     MemBlock* current = manager->head;
-    printf("Memory blocks:\n");
 
-    while (current != NULL) {
-        printf("Block at %p, size: %zu bytes, ref_count: %d\n", current->ptr, current->size, current->ref_count);
-        current = current->next;
+    printf("Current Memory Blocks:\n");
+    if (current == NULL) {
+        printf("No memory blocks in use.\n");
+    } else {
+        while (current != NULL) {
+            printf("Block at %p, size: %zu bytes, ref_count: %d\n", current->ptr, current->size, current->ref_count);
+            current = current->next;
+        }
     }
+
+    if (manager->pools == NULL) {
+        printf("No memory pools created.\n");
+    } else {
+        MemPool* pool = manager->pools;
+        printf("\nMemory Pools:\n");
+        while (pool != NULL) {
+            printf("Pool with block size: %zu bytes, block count: %zu\n", pool->block_size, pool->block_count);
+            pool = pool->next;
+        }
+    }
+
     printf("\n");
 }
 
