@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h> // Include for uintptr_t
 
 // Custom memory block structure
 typedef struct MemBlock {
@@ -26,28 +27,28 @@ typedef struct {
 
 // Function prototypes
 MemoryManager* create_memory_manager();
-void* allocate_memory(MemoryManager* manager, size_t size);
+void* allocate_memory(MemoryManager* manager, size_t size, size_t alignment);
 void increment_ref_count(MemoryManager* manager, void* ptr);
 void decrement_ref_count(MemoryManager* manager, void* ptr);
 void deallocate_memory(MemoryManager* manager, void* ptr);
-void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size);
+void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size, size_t alignment);
 void* copy_memory(MemoryManager* manager, void* src, size_t size);
 void free_memory_manager(MemoryManager* manager);
 void print_memory_blocks(MemoryManager* manager);
 void defragment_memory(MemoryManager* manager);
-void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count);
-void* allocate_from_pool(MemoryManager* manager, size_t size);
+void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count, size_t alignment);
+void* allocate_from_pool(MemoryManager* manager, size_t size, size_t alignment);
 
 // Main function
 int main() {
     MemoryManager* manager = create_memory_manager();
 
-    // Create memory pools
-    create_memory_pool(manager, 32, 10); // Pool with 32-byte blocks
-    create_memory_pool(manager, 64, 10); // Pool with 64-byte blocks
+    // Create memory pools with alignment
+    create_memory_pool(manager, 32, 10, 8); // Pool with 32-byte blocks, aligned to 8 bytes
+    create_memory_pool(manager, 64, 10, 16); // Pool with 64-byte blocks, aligned to 16 bytes
 
     // Allocate memory
-    int* array = (int*)allocate_memory(manager, 10 * sizeof(int));
+    int* array = (int*)allocate_memory(manager, 10 * sizeof(int), sizeof(int));
     for (int i = 0; i < 10; i++) {
         array[i] = i + 1;
     }
@@ -56,7 +57,7 @@ int main() {
     increment_ref_count(manager, array);
 
     // Reallocate memory
-    array = (int*)reallocate_memory(manager, array, 20 * sizeof(int));
+    array = (int*)reallocate_memory(manager, array, 20 * sizeof(int), sizeof(int));
     for (int i = 10; i < 20; i++) {
         array[i] = i + 1;
     }
@@ -112,29 +113,49 @@ MemoryManager* create_memory_manager() {
 }
 
 // Allocate memory
-void* allocate_memory(MemoryManager* manager, size_t size) {
-    void* ptr = allocate_from_pool(manager, size);
+void* allocate_memory(MemoryManager* manager, size_t size, size_t alignment) {
+    void* ptr = allocate_from_pool(manager, size, alignment);
     if (ptr != NULL) {
         return ptr;
     }
     
     MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
+    if (block == NULL) {
+        return NULL; // Allocation failed
+    }
+
+    // Allocate memory with alignment
+    void* raw_ptr = malloc(size + alignment - 1);
+    if (raw_ptr == NULL) {
+        free(block);
+        return NULL; // Allocation failed
+    }
+
+    uintptr_t aligned_ptr = (uintptr_t)raw_ptr;
+    aligned_ptr = (aligned_ptr + alignment - 1) & ~(alignment - 1); // Align the pointer
+
     block->size = size;
-    block->ptr = malloc(size);
+    block->ptr = (void*)aligned_ptr;
     block->ref_count = 1; // Initial reference count is 1
     block->next = manager->head;
     manager->head = block;
     return block->ptr;
 }
 
-// Allocate memory from pool
-void* allocate_from_pool(MemoryManager* manager, size_t size) {
+// Allocate memory from pool with alignment
+void* allocate_from_pool(MemoryManager* manager, size_t size, size_t alignment) {
     MemPool* pool = manager->pools;
 
     while (pool != NULL) {
         if (pool->block_size >= size && pool->free_list != NULL) {
             MemBlock* block = pool->free_list;
             pool->free_list = block->next;
+
+            // Align the pointer
+            uintptr_t aligned_ptr = (uintptr_t)block->ptr;
+            aligned_ptr = (aligned_ptr + alignment - 1) & ~(alignment - 1);
+            block->ptr = (void*)aligned_ptr;
+
             block->next = manager->head;
             manager->head = block;
             block->ref_count = 1; // Initial reference count is 1
@@ -147,8 +168,12 @@ void* allocate_from_pool(MemoryManager* manager, size_t size) {
 }
 
 // Create memory pool
-void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count) {
+void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count, size_t alignment) {
     MemPool* pool = (MemPool*)malloc(sizeof(MemPool));
+    if (pool == NULL) {
+        return; // Allocation failed
+    }
+
     pool->block_size = block_size;
     pool->block_count = block_count;
     pool->free_list = NULL;
@@ -157,8 +182,22 @@ void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_
 
     for (size_t i = 0; i < block_count; i++) {
         MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
+        if (block == NULL) {
+            return; // Allocation failed
+        }
+
+        // Allocate memory with alignment
+        void* raw_ptr = malloc(block_size + alignment - 1);
+        if (raw_ptr == NULL) {
+            free(block);
+            return; // Allocation failed
+        }
+
+        uintptr_t aligned_ptr = (uintptr_t)raw_ptr;
+        aligned_ptr = (aligned_ptr + alignment - 1) & ~(alignment - 1); // Align the pointer
+
         block->size = block_size;
-        block->ptr = malloc(block_size);
+        block->ptr = (void*)aligned_ptr;
         block->ref_count = 0; // Initial reference count is 0
         block->next = pool->free_list;
         pool->free_list = block;
@@ -226,16 +265,20 @@ void deallocate_memory(MemoryManager* manager, void* ptr) {
 }
 
 // Reallocate memory
-void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
+void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size, size_t alignment) {
     MemBlock* current = manager->head;
 
     while (current != NULL) {
         if (current->ptr == ptr) {
-            void* new_ptr = realloc(current->ptr, new_size);
+            void* new_ptr = realloc(current->ptr, new_size + alignment - 1);
             if (new_ptr == NULL) {
                 return NULL; // realloc failed
             }
-            current->ptr = new_ptr;
+
+            uintptr_t aligned_ptr = (uintptr_t)new_ptr;
+            aligned_ptr = (aligned_ptr + alignment - 1) & ~(alignment - 1); // Align the pointer
+
+            current->ptr = (void*)aligned_ptr;
             current->size = new_size;
             return new_ptr;
         }
@@ -247,7 +290,11 @@ void* reallocate_memory(MemoryManager* manager, void* ptr, size_t new_size) {
 
 // Copy memory
 void* copy_memory(MemoryManager* manager, void* src, size_t size) {
-    void* dest = allocate_memory(manager, size);
+    void* dest = allocate_memory(manager, size, sizeof(char)); // Align to char (byte) alignment
+    if (dest == NULL) {
+        return NULL; // Allocation failed
+    }
+
     memcpy(dest, src, size);
     return dest;
 }

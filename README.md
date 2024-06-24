@@ -8,6 +8,7 @@ It includes custom memory allocation, deallocation, and memory copying functions
 - Custom memory allocation and deallocation
 - Memory reallocation
 - Memory copying with error handling
+- Alignment support for memory allocation
 - Detailed memory block management with reference counting
 - Memory defragmentation to consolidate free blocks
 - Memory pooling for efficient allocation of fixed-size blocks
@@ -37,11 +38,11 @@ The main file containing the implementation of the memory management library.
 
 ## Example
 The `main` function demonstrates usage by:
-1. Creating memory pools.
-2. Allocating an array of integers.
+1. Creating memory pools with alignment.
+2. Allocating an array of integers with alignment.
 3. Incrementing the reference count.
-4. Reallocating the array to a larger size.
-5. Copying the array.
+4. Reallocating the array to a larger size with alignment.
+5. Copying the array with alignment.
 6. Printing the reallocated and copied arrays.
 7. Printing memory blocks before and after deallocation.
 8. Defragmenting memory blocks.
