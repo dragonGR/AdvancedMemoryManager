@@ -83,7 +83,7 @@ int main() {
     print_memory_blocks(manager);
 
     // Decrement reference count
-    decrement_ref_count(manager, array);
+    decrement_ref_count(manager, array); // This will deallocate if ref_count drops to 0
     decrement_ref_count(manager, array); // This should trigger deallocation
 
     // Deallocate copied memory
@@ -107,6 +107,10 @@ int main() {
 // Create memory manager
 MemoryManager* create_memory_manager() {
     MemoryManager* manager = (MemoryManager*)malloc(sizeof(MemoryManager));
+    if (manager == NULL) {
+        perror("Failed to create memory manager");
+        exit(EXIT_FAILURE);
+    }
     manager->head = NULL;
     manager->pools = NULL;
     return manager;
@@ -171,7 +175,8 @@ void* allocate_from_pool(MemoryManager* manager, size_t size, size_t alignment) 
 void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_count, size_t alignment) {
     MemPool* pool = (MemPool*)malloc(sizeof(MemPool));
     if (pool == NULL) {
-        return; // Allocation failed
+        perror("Failed to create memory pool");
+        exit(EXIT_FAILURE);
     }
 
     pool->block_size = block_size;
@@ -183,14 +188,16 @@ void create_memory_pool(MemoryManager* manager, size_t block_size, size_t block_
     for (size_t i = 0; i < block_count; i++) {
         MemBlock* block = (MemBlock*)malloc(sizeof(MemBlock));
         if (block == NULL) {
-            return; // Allocation failed
+            perror("Failed to create memory block");
+            exit(EXIT_FAILURE);
         }
 
         // Allocate memory with alignment
         void* raw_ptr = malloc(block_size + alignment - 1);
         if (raw_ptr == NULL) {
             free(block);
-            return; // Allocation failed
+            perror("Failed to allocate memory block");
+            exit(EXIT_FAILURE);
         }
 
         uintptr_t aligned_ptr = (uintptr_t)raw_ptr;
@@ -358,16 +365,19 @@ void print_memory_blocks(MemoryManager* manager) {
 // Defragment memory
 void defragment_memory(MemoryManager* manager) {
     MemBlock* current = manager->head;
-    MemBlock* next;
 
     while (current != NULL && current->next != NULL) {
-        next = current->next;
+        MemBlock* next = current->next;
+
+        // Check if the current block can be merged with the next one
         if ((char*)current->ptr + current->size == next->ptr && next->ref_count == 0) {
-            current->ptr = realloc(current->ptr, current->size + next->size);
-            if (current->ptr == NULL) {
+            void* new_ptr = realloc(current->ptr, current->size + next->size);
+            if (new_ptr == NULL) {
                 printf("Defragmentation failed\n");
                 return;
             }
+
+            current->ptr = new_ptr;
             current->size += next->size;
             current->next = next->next;
             free(next);
